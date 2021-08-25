@@ -1,6 +1,5 @@
 package com.loadbalancer;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class NodePool {
