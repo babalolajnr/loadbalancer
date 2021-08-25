@@ -1,8 +1,8 @@
 package com.loadbalancer;
 
 public class ResponseController implements ResponseMatcher {
-    private String request;
-    private String matchKey;
+    private final String request;
+    private final String matchKey;
     private String response;
 
     public ResponseController(String message) {
