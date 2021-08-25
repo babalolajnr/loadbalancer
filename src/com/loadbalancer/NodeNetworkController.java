@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public class NodeNetworkController extends MessageServer {
 
 
-    private Node node;
+    private final Node node;
 
     public NodeNetworkController(Node node) {
         this.node = node;
@@ -32,15 +32,11 @@ public class NodeNetworkController extends MessageServer {
 
     public void init() {
         executors.submit(() -> connect(node));
-        executors.submit(() -> read());
+        executors.submit(this::read);
     }
 
     public void setResponseConsumer(Consumer<byte[]> consumer) {
         this.consumer = consumer;
-    }
-
-    public void reset() {
-        closeSocket();
     }
 
     private void connect(Node node) {
@@ -63,7 +59,7 @@ public class NodeNetworkController extends MessageServer {
                     System.out.println("connected to " + node.getIp() + ":" + node.getPort());
                 } catch (IOException e) {
                     closeSocket();
-                    System.out.println(String.format("Could not connect to remote %s:%d", node.getIp(), node.getPort()));
+                    System.out.printf("Could not connect to remote %s:%d%n", node.getIp(), node.getPort());
                     waitForRetryConnection();
                 }
 
