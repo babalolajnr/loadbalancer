@@ -13,8 +13,6 @@ public class MessageServer implements Consumer<byte[]> {
         this.nodeNetworkController = nodeNetworkController;
     }
 
-    private int timeout = 30000;
-
     private static final ConcurrentHashMap<String, ResponseMatcher> responseMatcherMap = new ConcurrentHashMap<>();
 
     public MessageServer() {
@@ -44,6 +42,7 @@ public class MessageServer implements Consumer<byte[]> {
 
         try {
             synchronized (responseMatcher) {
+                int timeout = 30000;
                 responseMatcher.wait(timeout);
             }
         } catch (InterruptedException e) {
