@@ -19,7 +19,7 @@ public class ServerSocket {
     private final ThreadPoolExecutor executors = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
 
 
-    private List<AsynchronousSocketChannel> connectedClients = new ArrayList<>();
+    private final List<AsynchronousSocketChannel> connectedClients = new ArrayList<>();
     private Queue<AsynchronousSocketChannel> clientQueue = new LinkedList<>();
 
 
@@ -45,7 +45,7 @@ public class ServerSocket {
     }
 
 
-    class ConnectionData {
+    static class ConnectionData {
         AsynchronousServerSocketChannel server;
 
         public ConnectionData(AsynchronousServerSocketChannel server) {
@@ -62,6 +62,33 @@ public class ServerSocket {
                 notifyConnect(client);
 
                 System.out.println("Accepted a connection from " + clientAddress);
+
+//               Implement round-robin algorithm
+                synchronized (clientQueue) {
+                    clientQueue = new LinkedList<>(connectedClients);
+                    System.out.println("No of concurrent client request is " + clientQueue.size());
+                    NodePool nodePool = Main.nodeHashMap.get(1);
+                    List<NodesManager> nodesManagers = nodePool.getNodeList();
+
+                    int counter = 0;
+                    for (int i = 0; i < clientQueue.size(); i++) {
+
+                        NodesManager node = nodesManagers.get(counter);
+                        counter += 1;
+
+                        if (counter == nodesManagers.size()) {
+                            counter = 0;
+                        }
+//                        System.out.println(node.getNode().getNodeName());
+                        AsynchronousSocketChannel channel = clientQueue.element();
+                        if (Objects.isNull(channel)) {
+                            break;
+                        }
+                        clientQueue.remove(channel);
+                        connectedClients.remove(channel);
+                        executors.submit(() -> setupFirstTwoBytesReading(channel, node.getNodeNetworkController()));
+                    }
+                }
 
             } catch (IOException e) {
                 System.out.println("Could not process client connection" + e);
@@ -82,13 +109,13 @@ public class ServerSocket {
     }
 
 
-    class ReadData {
+    static class ReadData {
         AsynchronousSocketChannel client;
         ByteBuffer buffer;
     }
 
     class FirstTwoBytesReader implements CompletionHandler<Integer, ReadData> {
-        private NodeNetworkController nodeNetworkController;
+        private final NodeNetworkController nodeNetworkController;
 
         public FirstTwoBytesReader(NodeNetworkController nodeNetworkController) {
             this.nodeNetworkController = nodeNetworkController;
@@ -118,7 +145,7 @@ public class ServerSocket {
 
 
     class RemainingBytesHandler implements CompletionHandler<Integer, ReadData> {
-        private NodeNetworkController nodeNetworkController;
+        private final NodeNetworkController nodeNetworkController;
 
         public RemainingBytesHandler(NodeNetworkController nodeNetworkController) {
             this.nodeNetworkController = nodeNetworkController;
@@ -140,8 +167,8 @@ public class ServerSocket {
             remainingBytesData.buffer.flip();
             System.out.println("Remaining " + new String(remainingBytesData.buffer.array()));
 
-            byte[] fullResponse = handleRequest(remainingBytesData.buffer.array(), remainingBytesData, nodeNetworkController);
-            String log = String.format("writing to client  " + new String(fullResponse));
+            byte[] fullResponse = handleRequest(remainingBytesData.buffer.array(), nodeNetworkController);
+            String log = "writing to client  " + new String(fullResponse);
             System.out.println(log);
 
             ReadData actualData = new ReadData();
@@ -154,7 +181,7 @@ public class ServerSocket {
         }
     }
 
-    private byte[] handleRequest(byte[] request, ReadData readData, NodeNetworkController nodeNetworkController) {
+    private byte[] handleRequest(byte[] request, NodeNetworkController nodeNetworkController) {
         String response;
         byte[] fullResponse;
 
